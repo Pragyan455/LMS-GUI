@@ -31,7 +31,8 @@ public class LMS_Full {
         model = new DefaultTableModel();
         table = new JTable(model);
         frame.add(new JScrollPane(table), BorderLayout.CENTER);
-
+       
+        // ---------------- FIELDS ----------------
         JTextField fBook = new JTextField();
         JTextField fBranch = new JTextField();
         JTextField fCard = new JTextField();
@@ -43,9 +44,24 @@ public class LMS_Full {
         JTextField bPhone = new JTextField();
 
         JTextField fTitle = new JTextField();
+        JTextField fAuthor = new JTextField();   // 🔥 NEW
         JTextField fStart = new JTextField();
         JTextField fEnd = new JTextField();
         JTextField fFilter = new JTextField();
+
+        // ---------------- DROPDOWN ----------------
+        JComboBox<String> publisherBox = new JComboBox<>();
+
+        try {
+            Statement st = conn.createStatement();
+            ResultSet rs = st.executeQuery("SELECT publisher_name FROM PUBLISHER");
+
+            while (rs.next()) {
+                publisherBox.addItem(rs.getString("publisher_name"));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
        // ----------- FIELD SIZES -----------
         Dimension dim = new Dimension(100, 25);
@@ -65,6 +81,10 @@ public class LMS_Full {
 
         // Search row fields
         fTitle.setPreferredSize(dim);
+        fAuthor.setPreferredSize(dim);   
+        publisherBox.setPreferredSize(new Dimension(140, 25));
+
+        // Date eow fields
         fStart.setPreferredSize(dim);
         fEnd.setPreferredSize(dim);
         fFilter.setPreferredSize(dim);
@@ -95,14 +115,21 @@ public class LMS_Full {
         JPanel row3 = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
 
         row3.add(new JLabel("Book Title")); row3.add(fTitle);
-        row3.add(new JLabel("Start Date")); row3.add(fStart);
-        row3.add(new JLabel("End Date")); row3.add(fEnd);
-        row3.add(new JLabel("Filter Name")); row3.add(fFilter);
+        row3.add(new JLabel("Author")); row3.add(fAuthor);
+        row3.add(new JLabel("Publisher")); row3.add(publisherBox);
+
+        // ----------- ROW 4 -----------
+        JPanel row4 = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
+
+        row4.add(new JLabel("Start Date")); row4.add(fStart);
+        row4.add(new JLabel("End Date")); row4.add(fEnd);
+        row4.add(new JLabel("Filter Name")); row4.add(fFilter);
 
         // ----------- ADD ROWS -----------
         panel.add(row1);
         panel.add(row2);
         panel.add(row3);
+        panel.add(row4);
 
         frame.add(panel, BorderLayout.NORTH);
         JPanel buttons = new JPanel();
@@ -167,39 +194,52 @@ public class LMS_Full {
 
         // ---------------- ADD BOOK ----------------
         addBook.addActionListener(e -> {
-            try {
-                PreparedStatement ps = conn.prepareStatement(
-                        "INSERT INTO BOOK (title, book_publisher) VALUES (?, 'DefaultPub')",
-                        Statement.RETURN_GENERATED_KEYS);
-                ps.setString(1, fTitle.getText());
-                ps.executeUpdate();
+    try {
+        String title = fTitle.getText();
+        String publisher = (String) publisherBox.getSelectedItem();
+        String author = fAuthor.getText();
 
-                ResultSet rs = ps.getGeneratedKeys();
-                int book_id = 0;
-                if (rs.next()) book_id = rs.getInt(1);
+        // Insert into BOOK
+        PreparedStatement ps = conn.prepareStatement(
+            "INSERT INTO BOOK (title, book_publisher) VALUES (?, ?)",
+            Statement.RETURN_GENERATED_KEYS
+        );
+        ps.setString(1, title);
+        ps.setString(2, publisher);
+        ps.executeUpdate();
 
-                PreparedStatement pa = conn.prepareStatement(
-                        "INSERT INTO BOOK_AUTHORS VALUES (?, 'Unknown')");
-                pa.setInt(1, book_id);
-                pa.executeUpdate();
+        // Get book_id
+        ResultSet rs = ps.getGeneratedKeys();
+        int book_id = 0;
+        if (rs.next()) book_id = rs.getInt(1);
 
-                Statement st = conn.createStatement();
-                ResultSet br = st.executeQuery("SELECT branch_id FROM LIBRARY_BRANCH");
+        // Insert author
+        PreparedStatement pa = conn.prepareStatement(
+            "INSERT INTO BOOK_AUTHORS (book_id, author_name) VALUES (?, ?)"
+        );
+        pa.setInt(1, book_id);
+        pa.setString(2, author);
+        pa.executeUpdate();
 
-                while (br.next()) {
-                    PreparedStatement pc = conn.prepareStatement(
-                            "INSERT INTO BOOK_COPIES VALUES (?, ?, 5)");
-                    pc.setInt(1, book_id);
-                    pc.setInt(2, br.getInt(1));
-                    pc.executeUpdate();
-                }
+        // Add to all branches
+        Statement st = conn.createStatement();
+        ResultSet br = st.executeQuery("SELECT branch_id FROM LIBRARY_BRANCH");
 
-                JOptionPane.showMessageDialog(frame, "Book added to all branches!");
+        while (br.next()) {
+            PreparedStatement pc = conn.prepareStatement(
+                "INSERT INTO BOOK_COPIES (book_id, branch_id, no_of_copies) VALUES (?, ?, 5)"
+            );
+            pc.setInt(1, book_id);
+            pc.setInt(2, br.getInt("branch_id"));
+            pc.executeUpdate();
+        }
 
-            } catch (Exception ex) {
-                showError(ex);
-            }
-        });
+        JOptionPane.showMessageDialog(frame, "Book added successfully!");
+
+    } catch (Exception ex) {
+        showError(ex);
+    }
+});
 
         // ---------------- COPIES PER BRANCH ----------------
         copies.addActionListener(e -> {
