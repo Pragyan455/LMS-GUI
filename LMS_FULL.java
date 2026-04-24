@@ -32,32 +32,79 @@ public class LMS_Full {
         table = new JTable(model);
         frame.add(new JScrollPane(table), BorderLayout.CENTER);
 
-        JPanel panel = new JPanel(new GridLayout(3,4,5,5));
-
         JTextField fBook = new JTextField();
         JTextField fBranch = new JTextField();
         JTextField fCard = new JTextField();
         JTextField fDate = new JTextField();
         JTextField fDue = new JTextField();
-        JTextField fName = new JTextField();
+
+        JTextField bName = new JTextField();
+        JTextField bAddress = new JTextField();
+        JTextField bPhone = new JTextField();
+
         JTextField fTitle = new JTextField();
         JTextField fStart = new JTextField();
         JTextField fEnd = new JTextField();
         JTextField fFilter = new JTextField();
 
-        panel.add(new JLabel("Book ID")); panel.add(fBook);
-        panel.add(new JLabel("Branch ID")); panel.add(fBranch);
-        panel.add(new JLabel("Card No")); panel.add(fCard);
-        panel.add(new JLabel("Date Out")); panel.add(fDate);
-        panel.add(new JLabel("Due Date")); panel.add(fDue);
-        panel.add(new JLabel("Name")); panel.add(fName);
-        panel.add(new JLabel("Book Title")); panel.add(fTitle);
-        panel.add(new JLabel("Start Date")); panel.add(fStart);
-        panel.add(new JLabel("End Date")); panel.add(fEnd);
-        panel.add(new JLabel("Filter Name")); panel.add(fFilter);
+       // ----------- FIELD SIZES -----------
+        Dimension dim = new Dimension(100, 25);
+        
+
+        // Book row fields
+        fBook.setPreferredSize(dim);
+        fBranch.setPreferredSize(dim);
+        fCard.setPreferredSize(dim);
+        fDate.setPreferredSize(dim);
+        fDue.setPreferredSize(dim);
+
+        // Borrower row fields
+        bName.setPreferredSize(dim);
+        bAddress.setPreferredSize(dim);
+        bPhone.setPreferredSize(dim);
+
+        // Search row fields
+        fTitle.setPreferredSize(dim);
+        fStart.setPreferredSize(dim);
+        fEnd.setPreferredSize(dim);
+        fFilter.setPreferredSize(dim);
+
+
+        // ----------- MAIN PANEL -----------
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        // ----------- ROW 1 -----------
+        JPanel row1 = new JPanel(new FlowLayout(10, 15, 10));
+
+        row1.add(new JLabel("Book ID")); row1.add(fBook);
+        row1.add(new JLabel("Branch ID")); row1.add(fBranch);
+        row1.add(new JLabel("Card No")); row1.add(fCard);
+        row1.add(new JLabel("Date Out")); row1.add(fDate);
+        row1.add(new JLabel("Due Date")); row1.add(fDue);
+
+        // ----------- ROW 2 -----------
+        JPanel row2 = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
+
+        row2.add(new JLabel("Borrower Name")); row2.add(bName);
+        row2.add(new JLabel("Borrower Address")); row2.add(bAddress);
+        row2.add(new JLabel("Borrower Phone")); row2.add(bPhone);
+
+        // ----------- ROW 3 -----------
+        JPanel row3 = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
+
+        row3.add(new JLabel("Book Title")); row3.add(fTitle);
+        row3.add(new JLabel("Start Date")); row3.add(fStart);
+        row3.add(new JLabel("End Date")); row3.add(fEnd);
+        row3.add(new JLabel("Filter Name")); row3.add(fFilter);
+
+        // ----------- ADD ROWS -----------
+        panel.add(row1);
+        panel.add(row2);
+        panel.add(row3);
 
         frame.add(panel, BorderLayout.NORTH);
-
         JPanel buttons = new JPanel();
 
         JButton checkout = new JButton("Checkout");
@@ -103,7 +150,9 @@ public class LMS_Full {
                 PreparedStatement ps = conn.prepareStatement(
                         "INSERT INTO BORROWER (name) VALUES (?)",
                         Statement.RETURN_GENERATED_KEYS);
-                ps.setString(1, fName.getText());
+                ps.setString(1, bName.getText());
+                ps.setString(2, bAddress.getText());
+                ps.setInt(3, Integer.parseInt(bPhone.getText()));
                 ps.executeUpdate();
 
                 ResultSet rs = ps.getGeneratedKeys();
