@@ -5,23 +5,20 @@ import java.sql.*;
 
 public class LMS_Full {
 
-    static Connection conn;
-    static JTable table;
-    static DefaultTableModel model;
+   static JTextField fBook, fBranch, fCard, fDate, fDue;
+    static JTextField bName, bAddress, bPhone;
+    static JTextField fTitle, fAuthor, fStart, fEnd, fFilter;
+    static JComboBox<String> publisherBox;
 
     public static void main(String[] args) {
       try {
-    Class.forName("org.sqlite.JDBC");
+            Class.forName("org.sqlite.JDBC");
+            conn = DriverManager.getConnection("jdbc:sqlite:LMS.db");
+            System.out.println("Connected!");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
-    conn = DriverManager.getConnection(
-        "jdbc:sqlite:/Users/pragyanbhattarai/UTA/CSE 3330/GUi/LMS.db"
-    );
-
-    System.out.println("Connection = " + conn);
-
-} catch (Exception e) {
-    e.printStackTrace();
-}
 
         JFrame frame = new JFrame("LMS System");
         frame.setSize(1000, 600);
@@ -33,21 +30,33 @@ public class LMS_Full {
         frame.add(new JScrollPane(table), BorderLayout.CENTER);
        
         // ---------------- FIELDS ----------------
-        JTextField fBook = new JTextField();
-        JTextField fBranch = new JTextField();
-        JTextField fCard = new JTextField();
-        JTextField fDate = new JTextField();
-        JTextField fDue = new JTextField();
+        fBook = new JTextField(); 
+        fBranch = new JTextField();
+        fCard = new JTextField(); 
+        fDate = new JTextField(); 
+        fDue = new JTextField();
 
-        JTextField bName = new JTextField();
-        JTextField bAddress = new JTextField();
-        JTextField bPhone = new JTextField();
+        bName = new JTextField(); 
+        bAddress = new JTextField(); 
+        bPhone = new JTextField();
 
-        JTextField fTitle = new JTextField();
-        JTextField fAuthor = new JTextField();   // 🔥 NEW
-        JTextField fStart = new JTextField();
-        JTextField fEnd = new JTextField();
-        JTextField fFilter = new JTextField();
+        fTitle = new JTextField(); 
+        fAuthor = new JTextField();
+        fStart = new JTextField(); 
+        fEnd = new JTextField(); 
+        fFilter = new JTextField();
+
+        publisherBox = new JComboBox<>();
+
+        loadPublishers();
+
+        // sizes
+        Dimension dim = new Dimension(110, 25);
+        JTextField[] fields = {fBook,fBranch,fCard,fDate,fDue,bName,bAddress,bPhone,fTitle,fAuthor,fStart,fEnd,fFilter};
+        for (JTextField f : fields) f.setPreferredSize(dim);
+
+        publisherBox.setPreferredSize(new Dimension(140,25));
+
 
         // ---------------- DROPDOWN ----------------
         JComboBox<String> publisherBox = new JComboBox<>();
@@ -63,40 +72,15 @@ public class LMS_Full {
             e.printStackTrace();
         }
 
-       // ----------- FIELD SIZES -----------
-        Dimension dim = new Dimension(100, 25);
-        
-
-        // Book row fields
-        fBook.setPreferredSize(dim);
-        fBranch.setPreferredSize(dim);
-        fCard.setPreferredSize(dim);
-        fDate.setPreferredSize(dim);
-        fDue.setPreferredSize(dim);
-
-        // Borrower row fields
-        bName.setPreferredSize(dim);
-        bAddress.setPreferredSize(dim);
-        bPhone.setPreferredSize(dim);
-
-        // Search row fields
-        fTitle.setPreferredSize(dim);
-        fAuthor.setPreferredSize(dim);   
-        publisherBox.setPreferredSize(new Dimension(140, 25));
-
-        // Date eow fields
-        fStart.setPreferredSize(dim);
-        fEnd.setPreferredSize(dim);
-        fFilter.setPreferredSize(dim);
+       
 
 
         // ----------- MAIN PANEL -----------
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         // ----------- ROW 1 -----------
-        JPanel row1 = new JPanel(new FlowLayout(10, 15, 10));
+        JPanel row1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
 
         row1.add(new JLabel("Book ID")); row1.add(fBook);
         row1.add(new JLabel("Branch ID")); row1.add(fBranch);
@@ -132,6 +116,9 @@ public class LMS_Full {
         panel.add(row4);
 
         frame.add(panel, BorderLayout.NORTH);
+        
+        // ---------------- BUTTONS ----------------
+
         JPanel buttons = new JPanel();
 
         JButton checkout = new JButton("Checkout");
