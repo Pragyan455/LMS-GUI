@@ -9,8 +9,8 @@ class LMS_App:
         self.root.title("Library Management System - Team 8")
         self.root.geometry("1000x900")
         
-        # Database file name per your schema
-        self.db_name = 'LMS.db' 
+        # Ensure this matches your actual database file name
+        self.db_name = 'Test.db' 
 
         self.style = ttk.Style()
         self.style.configure("TLabel", padding=5)
@@ -26,6 +26,7 @@ class LMS_App:
         self.setup_finance_tab()   # Req 6a & 6b
 
     def run_query(self, query, params=(), commit=False):
+        """Standardized helper to run SQL and return results."""
         try:
             conn = sqlite3.connect(self.db_name)
             curr = conn.cursor()
@@ -38,8 +39,23 @@ class LMS_App:
             conn.close()
             return res
         except Exception as e:
+            print(f"SQL Debug Error: {e}")
             messagebox.showerror("Database Error", f"SQL Error: {str(e)}")
             return None
+
+    # --- DROP DOWN DATA FETCHERS ---
+    def get_publisher_names(self):
+        """Fetches from PUBLISHER table using the publisher_name column."""
+        res = self.run_query("SELECT publisher_name FROM PUBLISHER")
+        names = [row[0] for row in res] if res else []
+        print(f"DEBUG: Publishers loaded: {names}") # Check your console for this!
+        return names
+
+    def get_book_ids(self):
+        """Fetches from BOOK table using the book_id column."""
+        res = self.run_query("SELECT book_id FROM BOOK")
+        ids = [row[0] for row in res] if res else []
+        return ids
 
     def create_tree(self, parent, columns):
         tree = ttk.Treeview(parent, columns=columns, show='headings', height=8)
@@ -48,18 +64,7 @@ class LMS_App:
             tree.column(col, width=150, anchor="center")
         return tree
 
-    # --- Schema-Specific Helpers ---
-    def get_publisher_names(self):
-        # Updated to match column: publisher_name
-        res = self.run_query("SELECT publisher_name FROM PUBLISHER")
-        return [row[0] for row in res] if res else []
-
-    def get_book_ids(self):
-        # Updated to match column: book_id
-        res = self.run_query("SELECT book_id FROM BOOK")
-        return [row[0] for row in res] if res else []
-
-    # --- REQ 1: Checkout ---
+    # --- REQ 1: Checkout Tab (with Dropdown) ---
     def setup_checkout_tab(self):
         tab = ttk.Frame(self.notebook)
         self.notebook.add(tab, text="Checkouts")
@@ -70,6 +75,7 @@ class LMS_App:
         tk.Label(input_frame, text="Book ID:").grid(row=0, column=0, sticky='e')
         self.bid_cb = ttk.Combobox(input_frame, values=self.get_book_ids())
         self.bid_cb.grid(row=0, column=1, pady=5)
+        # Refresh button for Book IDs
         tk.Button(input_frame, text="🔄", command=lambda: self.bid_cb.config(values=self.get_book_ids())).grid(row=0, column=2, padx=5)
 
         tk.Label(input_frame, text="Branch ID:").grid(row=1, column=0, sticky='e')
@@ -83,26 +89,21 @@ class LMS_App:
 
         def action():
             book_id = self.bid_cb.get()
-            branch_id = brid.get()
-            card = cno.get()
-            
-            if not book_id or not branch_id or not card:
-                messagebox.showwarning("Input Error", "All fields are required.")
+            if not book_id:
+                messagebox.showwarning("Input Error", "Please select a Book ID.")
                 return
 
             today = datetime.now().strftime('%Y-%m-%d')
-            # Updated to match table BOOK_LOANS columns
             q = "INSERT INTO BOOK_LOANS (book_id, branch_id, card_no, date_out, due_date) VALUES (?, ?, ?, ?, ?)"
-            self.run_query(q, (book_id, branch_id, card, today, '2026-05-30'), commit=True)
+            self.run_query(q, (book_id, brid.get(), cno.get(), today, '2026-05-30'), commit=True)
             
-            # Fetch updated counts from BOOK_COPIES
             res = self.run_query("SELECT book_id, branch_id, no_of_copies FROM BOOK_COPIES WHERE book_id=?", (book_id,))
             for item in tree.get_children(): tree.delete(item)
             if res:
                 for row in res: tree.insert("", "end", values=row)
-            messagebox.showinfo("Success", "Checkout successful.")
+            messagebox.showinfo("Success", "Checkout recorded.")
 
-        tk.Button(tab, text="Submit Checkout", command=action, bg="#4CAF50", fg="white", font=('Arial', 10, 'bold')).pack(pady=10)
+        tk.Button(tab, text="Submit Checkout", command=action, bg="#4CAF50", fg="white").pack(pady=10)
 
     # --- REQ 2: New Borrower ---
     def setup_borrower_tab(self):
@@ -115,27 +116,33 @@ class LMS_App:
         tk.Label(tab, text="Phone:").pack(); ph = tk.Entry(tab); ph.pack()
 
         def action():
-            # Assuming BORROWER table columns: name, address, phone
             q = "INSERT INTO BORROWER (name, address, phone) VALUES (?, ?, ?)"
             card_no = self.run_query(q, (name.get(), addr.get(), ph.get()), commit=True)
             messagebox.showinfo("Success", f"Borrower registered. Card No: {card_no}")
 
         tk.Button(tab, text="Register", command=action, bg="#2196F3", fg="white").pack(pady=20)
 
-    # --- REQ 3: Add Books ---
+    # --- REQ 3: Global Book Addition (with Publisher Dropdown) ---
     def setup_book_tab(self):
         tab = ttk.Frame(self.notebook)
         self.notebook.add(tab, text="Add Books")
         
-        tk.Label(tab, text="Global Book Entry", font=('Arial', 12, 'bold')).pack(pady=10)
-        tk.Label(tab, text="Title:").pack(); title = tk.Entry(tab); title.pack()
+        tk.Label(tab, text="Global Book Entry", font=('Arial', 14, 'bold')).pack(pady=15)
+        
+        tk.Label(tab, text="Title:").pack()
+        title = tk.Entry(tab, width=40); title.pack(pady=5)
         
         tk.Label(tab, text="Select Publisher:").pack()
-        self.pub_cb = ttk.Combobox(tab, values=self.get_publisher_names())
-        self.pub_cb.pack()
-        tk.Button(tab, text="Refresh Publishers", command=lambda: self.pub_cb.config(values=self.get_publisher_names())).pack(pady=2)
+        # Dropdown initialized with data from PUBLISHER table
+        self.pub_cb = ttk.Combobox(tab, values=self.get_publisher_names(), width=37)
+        self.pub_cb.pack(pady=5)
         
-        tk.Label(tab, text="Author Name:").pack(); auth = tk.Entry(tab); auth.pack()
+        # Refresh button in case you just imported a CSV
+        tk.Button(tab, text="🔄 Refresh Publisher List", 
+                  command=lambda: self.pub_cb.config(values=self.get_publisher_names())).pack(pady=5)
+        
+        tk.Label(tab, text="Author Name:").pack()
+        auth = tk.Entry(tab, width=40); auth.pack(pady=5)
 
         def action():
             t = title.get()
@@ -146,26 +153,28 @@ class LMS_App:
                 messagebox.showwarning("Input Error", "Title and Publisher are required.")
                 return
                 
-            # INSERT into BOOK (columns: title, book_publisher)
+            # book_publisher links to publisher_name in your schema
             bid = self.run_query("INSERT INTO BOOK (title, book_publisher) VALUES (?, ?)", (t, p), commit=True)
-            # INSERT into BOOK_AUTHORS (columns: book_id, author_name)
             self.run_query("INSERT INTO BOOK_AUTHORS (book_id, author_name) VALUES (?, ?)", (bid, a), commit=True)
             
-            # Seed copies to branches (Assumes branch IDs 1-5 exist)
-            for i in range(1, 6):
-                self.run_query("INSERT INTO BOOK_COPIES (book_id, branch_id, no_of_copies) VALUES (?, ?, 5)", (bid, i), commit=True)
+            # Auto-seed to existing branches
+            branches = self.run_query("SELECT branch_id FROM LIBRARY_BRANCH")
+            if branches:
+                for b_id in branches:
+                    self.run_query("INSERT INTO BOOK_COPIES (book_id, branch_id, no_of_copies) VALUES (?, ?, 5)", (bid, b_id[0]), commit=True)
             
+            # Refresh the checkout dropdown to include the new book
             self.bid_cb.config(values=self.get_book_ids())
-            messagebox.showinfo("Success", f"Book ID {bid} added and seeded to all branches.")
+            messagebox.showinfo("Success", f"Book added successfully with ID: {bid}")
 
-        tk.Button(tab, text="Add Book Globally", command=action, bg="#FF9800", fg="white").pack(pady=20)
+        tk.Button(tab, text="Add Book Globally", command=action, bg="#FF9800", fg="white", font=('Arial', 11, 'bold')).pack(pady=20)
 
     # --- REQ 4 & 5: Reports ---
     def setup_reports_tab(self):
         tab = ttk.Frame(self.notebook)
         self.notebook.add(tab, text="Reports")
         
-        # Req 4: Loans per branch (Using branch_name from LIBRARY_BRANCH)
+        # Req 4
         tk.Label(tab, text="Copies Loaned Out per Branch (By Title)", font=('Arial', 10, 'bold')).pack(pady=5)
         title_ent = tk.Entry(tab); title_ent.pack()
         tree4 = self.create_tree(tab, ("Branch Name", "Checkouts"))
@@ -181,16 +190,13 @@ class LMS_App:
             for item in tree4.get_children(): tree4.delete(item)
             if res:
                 for row in res: tree4.insert("", "end", values=row)
-
         tk.Button(tab, text="Search Branches", command=run_req4).pack(pady=5)
 
-        # Req 5: Late loans (Using Returned_date from schema)
+        # Req 5
         tk.Label(tab, text="Late Returns (Due Date Range)", font=('Arial', 10, 'bold')).pack(pady=10)
-        range_f = tk.Frame(tab)
-        range_f.pack()
+        range_f = tk.Frame(tab); range_f.pack()
         tk.Label(range_f, text="Start:").grid(row=0, column=0); sd = tk.Entry(range_f); sd.grid(row=0, column=1)
         tk.Label(range_f, text="End:").grid(row=1, column=0); ed = tk.Entry(range_f); ed.grid(row=1, column=1)
-        
         tree5 = self.create_tree(tab, ("Card No", "Book ID", "Days Late"))
         tree5.pack()
 
@@ -201,22 +207,19 @@ class LMS_App:
             for item in tree5.get_children(): tree5.delete(item)
             if res:
                 for row in res: tree5.insert("", "end", values=row)
-
         tk.Button(tab, text="Find Late Loans", command=run_req5).pack(pady=5)
 
-    # --- REQ 6: Finance & Fees (Using your View) ---
+    # --- REQ 6: Finance & Fees ---
     def setup_finance_tab(self):
         tab = ttk.Frame(self.notebook)
         self.notebook.add(tab, text="Finance")
         
-        # 6a: Search borrower by balance (from view)
         tk.Label(tab, text="Borrower Total Late Balance", font=('Arial', 10, 'bold')).pack(pady=5)
         search_a = tk.Entry(tab); search_a.pack()
         tree6a = self.create_tree(tab, ("Name", "Total Balance"))
         tree6a.pack()
 
         def run_req6a():
-            # Summarize balance from the view per borrower
             val = f"%{search_a.get()}%"
             q = """SELECT borrower_name, SUM(LateFeeBalance) 
                    FROM vBookLoanInfo WHERE borrower_name LIKE ? 
@@ -225,10 +228,8 @@ class LMS_App:
             for item in tree6a.get_children(): tree6a.delete(item)
             if res:
                 for row in res: tree6a.insert("", "end", values=(row[0], f"${row[1]:.2f}"))
-
         tk.Button(tab, text="Search Fees", command=run_req6a).pack(pady=5)
 
-        # 6b: Specific Late Fee Info from View
         tk.Label(tab, text="Detailed Late Fee View", font=('Arial', 10, 'bold')).pack(pady=10)
         search_b = tk.Entry(tab); search_b.pack()
         tree6b = self.create_tree(tab, ("Book Title", "Late Days", "Fee Status"))
@@ -236,7 +237,6 @@ class LMS_App:
 
         def run_req6b():
             val = f"%{search_b.get()}%"
-            # Using your view columns: title, LateDays, LateFeeBalance
             q = """SELECT title, LateDays, 
                    CASE WHEN LateFeeBalance = 0 THEN 'Non-Applicable' 
                    ELSE '$' || printf('%.2f', LateFeeBalance) END 
@@ -245,7 +245,6 @@ class LMS_App:
             for item in tree6b.get_children(): tree6b.delete(item)
             if res:
                 for row in res: tree6b.insert("", "end", values=row)
-
         tk.Button(tab, text="Search Detailed View", command=run_req6b).pack(pady=5)
 
 if __name__ == "__main__":
